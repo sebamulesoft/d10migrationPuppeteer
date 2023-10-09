@@ -6,40 +6,15 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const PNG = require('pngjs').PNG;
 const pixelmatch = require('pixelmatch');
+const testConfig = require('./testConfig.js');
 
 const devPath = 'https://developerd8dev.prod.acquia-sites.com/';
 const prodPath = 'https://developerd8.prod.acquia-sites.com/';
 const testResults = [];
-const uris =[
- 'platform/studio'
-];
-
-const breakPoints = [
-    {   name: 'desktop',
-        width: 1792,
-        height: 900,
-        nav_prod: 72,
-        nav_dev: 100
-    },
-    {
-        name: 'mobile',
-        width: 360,
-        height: 649,
-        nav_prod: 72,
-        nav_dev: 104
-    },
-    {
-        name: 'tablet',
-        width: 768,
-        height: 1024,
-        nav_prod: 72,
-        nav_dev: 104
-    }
-];
 
 (async () => {
-  for(const uri of uris){
-    for(const breakPoint of breakPoints){
+  for(const uri of testConfig.uris){
+    for(const breakPoint of testConfig.breakPoints){
       try{ 
         console.log('testing ' + uri + ' ' + breakPoint.name)
         const pageResult = await compareScreenshots(uri, breakPoint);
