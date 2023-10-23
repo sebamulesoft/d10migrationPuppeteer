@@ -43,6 +43,7 @@ const testResults = [];
 })();
 
 async function compareScreenshots (uri, breakPoint)  {
+
   const browser = await puppeteer.launch({headless:"new"});
   const folderPath = './screenshots/' + uri.replaceAll('/', '_')
   const basePath = folderPath + breakPoint.name + 'prodBase.png'
@@ -51,7 +52,8 @@ async function compareScreenshots (uri, breakPoint)  {
   try {
     const page = await browser.newPage();
     await page.setViewport({width:breakPoint.width, height:breakPoint.height})
-    const prodResponse = await page.goto(prodPath + uri);
+    const prodResponse = await page.goto(prodPath + uri, {waitUntil: "networkidle0"});
+
     let prodResponseStatus;
     if(prodResponse)
       prodResponseStatus = await prodResponse.status();
@@ -59,7 +61,14 @@ async function compareScreenshots (uri, breakPoint)  {
     const contentAreaBase = await page.$('.full-width-row')
     const boundingBoxBase = await contentAreaBase.boundingBox();
 
-    //REMOVE NAV AND AUTOPILOT
+    await autoscroll(boundingBoxBase.height, page);
+    await page.waitForTimeout(5000)
+    await autoscroll(0, page);
+    await page.waitForTimeout(5000)
+
+    const updatedBoundingBoxBase = await contentAreaBase.boundingBox();
+
+    //REMOVE NAV AND AUTOPILOT, FOOTER
     let clipYProd;
     let prodMainNav;
     if(breakPoint.name == 'desktop'){
@@ -74,15 +83,27 @@ async function compareScreenshots (uri, breakPoint)  {
     const autopilot = await page.$('.brightedge-links');
     if(autopilot)
     await page.addStyleTag({content: '.brightedge-links { display: none !important; }'});
+    const prodFooter = await page.$('.ms-com-content-footer')
+    if(prodFooter)
+    await page.addStyleTag({content: '.ms-com-content-footer { display: none !important; }'});
+    
 
     await page.screenshot({ path: basePath , clip:{height :boundingBoxBase.height, width : boundingBoxBase.width, x:0, y: clipYProd}});
    
-    const devResponse = await page.goto(devPath + uri);
+    const devResponse = await page.goto(devPath + uri,{waitUntil: "domcontentloaded"});
+
+    
+
     let devResponseStatus;
     if(devResponse)
       devResponseStatus = await devResponse.status();
 
-    //REMOVE ERROR MESSAGE, NAV, HELMET
+      await autoscroll(boundingBoxBase.height, page);
+      await page.waitForTimeout(5000)
+      await autoscroll(0, page);
+      await page.waitForTimeout(5000)
+
+    //REMOVE ERROR MESSAGE, NAV, HELMET, FOOTER
     let clipY = 0;
     const errorMessage = await page.$('.messages--error');
     if(errorMessage)
@@ -102,7 +123,9 @@ async function compareScreenshots (uri, breakPoint)  {
       const devNavBoundingBox = await devMainNav.boundingBox();
       clipY += devNavBoundingBox.height;
     }
-      
+    if(prodFooter)
+    await page.addStyleTag({content: '.ms-com-content-footer { display: none !important; }'});
+    
 
     const screenshotClip = {height :boundingBoxBase.height, width : boundingBoxBase.width, x:0 ,y: clipY};
 
@@ -128,3 +151,18 @@ async function compareScreenshots (uri, breakPoint)  {
     await browser.close();
   }
 };
+
+//helper function for autoscrolling the page as needed
+async function disableLazyLoading(page){
+	await page.$$eval('img', imgs => imgs.map(img => img.removeAttribute('loading')));
+}
+
+async function autoscroll(direction, page){
+	await page.evaluate(async direction => {
+		await scrollTo({
+      top: direction,
+      left: 0,
+      behavior: "smooth",
+    })
+	}, direction)
+}
